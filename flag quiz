@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flag Quiz Game</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  width: 400px;
+  text-align: center;
+}
+
+img {
+  width: 100%;
+  height: 170px;
+  border-radius: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 6px;
+  background: green;
+  color: white;
+  cursor: pointer;
+}
+
+.scoreboard {
+  max-height: 120px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 13px;
+}
+
+.correct { color: green; }
+.wrong { color: red; }
+
+.hint {
+  background: #eee;
+  margin-top: 5px;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+.final-board { display: none; }
+table { width: 100%; margin-top: 10px; }
+td, th { border: 1px solid #ccc; padding: 5px; }
+</style>
+
+</head>
+<body>
+
+<div class="container">
+<h2>🌍 Flag Quiz</h2>
+
+<img id="flag">
+
+<input id="answer" placeholder="Enter country">
+
+<button onclick="handleSubmit()">Submit</button>
+<button onclick="showFinalScore()" style="background:orange">Final Score</button>
+
+<div id="result"></div>
+<div id="score">Score: 0</div>
+
+<div id="hints"></div>
+<div class="scoreboard" id="scoreboard"></div>
+
+<div class="final-board" id="finalBoard">
+<h3>Final Score</h3>
+<table>
+<tr><th>Correct</th><th>Wrong</th></tr>
+<tbody id="finalTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+let quizData = [];
+let current = 0;
+let score = 0;
+let history = [];
+let lock = false;
+
+const correctSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3");
+const wrongSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-wrong-answer-fail-notification-946.mp3");
+const enterSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3");
+
+const popular = ["India","United States","United Kingdom","China","Japan","Germany","France","Brazil","Canada","Australia"];
+
+fetch("https://restcountries.com/v3.1/all?fields=name,flags,region,capital")
+.then(res=>res.json())
+.then(data=>{
+  let all = data.map(c=>({
+    country:c.name.common,
+    flag:c.flags.png,
+    region:c.region,
+    capital:c.capital ? c.capital[0] : "Unknown"
+  }));
+
+  let first = all.filter(c=>popular.includes(c.country));
+  let rest = all.filter(c=>!popular.includes(c.country));
+
+  rest.sort(()=>Math.random()-0.5);
+  quizData = [...first, ...rest];
+
+  load();
+});
+
+function load(){
+  let q = quizData[current];
+  document.getElementById("flag").src = q.flag;
+  document.getElementById("answer").value = "";
+
+  document.getElementById("hints").innerHTML = `
+    <div class="hint">💡 Starts: ${q.country[0]}</div>
+    <div class="hint">💡 Region: ${q.region}</div>
+    <div class="hint">💡 Capital: ${q.capital}</div>
+  `;
+}
+
+function play(s){
+  s.currentTime = 0;
+  s.play().catch(()=>{});
+}
+
+function handleSubmit(){
+  if(lock) return;
+  lock = true;
+
+  let user = answer.value.trim().toLowerCase();
+  let correct = quizData[current].country.toLowerCase();
+
+  let div = document.createElement("div");
+
+  if(user === correct){
+    score++;
+    play(correctSound);
+    div.innerText = "✔ " + quizData[current].country;
+    div.className = "correct";
+    history.push({c:quizData[current].country,w:""});
+  } else {
+    play(wrongSound);
+    div.innerText = "✖ " + quizData[current].country;
+    div.className = "wrong";
+    history.push({c:"",w:quizData[current].country});
+  }
+
+  scoreboard.prepend(div);
+  document.getElementById("score").innerText = "Score: " + score;
+
+  setTimeout(()=>{
+    current = (current+1) % quizData.length;
+    load();
+    lock = false;
+  },1000);
+}
+
+function showFinalScore(){
+  let html = "";
+  history.forEach(h=>{
+    html += `<tr><td>${h.c}</td><td>${h.w}</td></tr>`;
+  });
+  finalTable.innerHTML = html;
+  finalBoard.style.display = "block";
+}
+
+document.getElementById("answer").addEventListener("keydown",function(e){
+  if(e.key === "Enter"){
+    e.preventDefault();
+    play(enterSound);
+    handleSubmit();
+  }
+});
+</script>
+
+</body>
+</html>
